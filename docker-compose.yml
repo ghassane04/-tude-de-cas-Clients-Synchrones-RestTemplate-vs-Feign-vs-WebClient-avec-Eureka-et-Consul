@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+  discovery-service:
+    build: ./discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_CLIENT_REGISTER_WITH_EUREKA=false
+      - EUREKA_CLIENT_FETCH_REGISTRY=false
+    healthcheck:
+        test: ["CMD", "wget", "-q", "--spider", "http://localhost:8761/actuator/health"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  car-service:
+    build: ./car-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SPRING_APPLICATION_NAME=service-voiture
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+
+  client-service:
+    build: ./client-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SPRING_APPLICATION_NAME=service-client
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+
+  # Consul is optional and commented out as we are using Eureka by default
+  # consul:
+  #   image: hashicorp/consul
+  #   ports:
+  #     - "8500:8500"
+  #   command: agent -server -bind 0.0.0.0 -client 0.0.0.0 -node server-1 -bootstrap-expect 1 -ui
